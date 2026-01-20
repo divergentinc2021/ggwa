@@ -19,24 +19,20 @@ const STATIC_ASSETS = [
 function isCacheable(url) {
     const parsedUrl = new URL(url);
     
-    // Only cache HTTP/HTTPS URLs from our own origin
     if (!parsedUrl.protocol.startsWith('http')) {
         return false;
     }
     
-    // Skip chrome-extension and other special schemes
     if (parsedUrl.protocol === 'chrome-extension:' || 
         parsedUrl.protocol === 'moz-extension:' ||
         parsedUrl.protocol === 'safari-extension:') {
         return false;
     }
     
-    // Skip API calls
     if (parsedUrl.pathname.startsWith('/api/')) {
         return false;
     }
     
-    // Skip external URLs (optional - only cache same-origin)
     if (parsedUrl.origin !== self.location.origin) {
         return false;
     }
@@ -83,12 +79,10 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
     const { request } = event;
     
-    // Skip non-GET requests
     if (request.method !== 'GET') {
         return;
     }
     
-    // Skip non-cacheable URLs
     if (!isCacheable(request.url)) {
         return;
     }
@@ -117,19 +111,37 @@ self.addEventListener('fetch', (event) => {
         caches.match(request)
             .then((cachedResponse) => {
                 if (cachedResponse) {
-                    // Return cached version and update in background
                     fetchAndCache(request);
                     return cachedResponse;
                 }
                 
-                // Not in cache - fetch from network
+                // Try with .html extension (Cloudflare Pages routing: /booking → /booking.html)
+                const pathWithHtml = url.pathname.endsWith('.html') ? null : url.pathname + '.html';
+                if (pathWithHtml) {
+                    return caches.match(pathWithHtml)
+                        .then((htmlResponse) => {
+                            if (htmlResponse) {
+                                fetchAndCache(request);
+                                return htmlResponse;
+                            }
+                            return fetchAndCache(request);
+                        });
+                }
+                
                 return fetchAndCache(request);
             })
             .catch((error) => {
                 console.error('Fetch error:', error);
-                // Offline fallback for HTML pages
+                
+                // Offline fallback - try .html version of the path
                 if (request.headers.get('Accept')?.includes('text/html')) {
-                    return caches.match('/index.html');
+                    if (!url.pathname.endsWith('.html')) {
+                        return caches.match(url.pathname + '.html')
+                            .then(r => r || caches.match('/index.html'))
+                            .then(r => r || new Response('Offline', { status: 503 }));
+                    }
+                    return caches.match('/index.html')
+                        .then(r => r || new Response('Offline', { status: 503 }));
                 }
                 return new Response('Offline', { status: 503 });
             })
@@ -139,17 +151,14 @@ self.addEventListener('fetch', (event) => {
 // Helper function to fetch and cache
 async function fetchAndCache(request) {
     try {
-        // Fetch with proper redirect mode
         const networkResponse = await fetch(request, { 
             redirect: 'follow',
             credentials: 'same-origin'
         });
         
-        // Only cache successful responses
         if (networkResponse && networkResponse.status === 200 && isCacheable(request.url)) {
             const responseClone = networkResponse.clone();
             
-            // Cache asynchronously without blocking
             caches.open(CACHE_NAME)
                 .then((cache) => {
                     cache.put(request, responseClone)
@@ -166,13 +175,11 @@ async function fetchAndCache(request) {
     } catch (error) {
         console.error('Network fetch failed:', error);
         
-        // Try to serve from cache as fallback
         const cachedResponse = await caches.match(request);
         if (cachedResponse) {
             return cachedResponse;
         }
         
-        // Last resort - return error
         if (request.headers.get('Accept')?.includes('text/html')) {
             return caches.match('/index.html') || new Response('Offline', { status: 503 });
         }
@@ -202,7 +209,5 @@ self.addEventListener('sync', (event) => {
 });
 
 async function syncPendingJobs() {
-    // Get pending jobs from IndexedDB
-    // This would be implemented if full offline support is needed
     console.log('Syncing pending jobs...');
 }

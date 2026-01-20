@@ -1,12 +1,16 @@
 /* ===== GRANNY GEAR WORKSHOP - COMMON UTILITIES ===== */
 
 // ===== API CONFIGURATION =====
-// Cloudflare Worker Proxy Endpoint (routes to Apps Script)
-const API_URL = '/api/proxy';
+// Try proxy first, fallback to direct Apps Script if proxy fails
+const API_PROXY_URL = '/api/proxy';
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyhSpACfq5hYN88C4yd7YX7FEpXRjv9gA9gX6Qb9J1qp35B0IOpvl107HcT3KDFXFRx/exec';
 
 // Google Sheets ID and Drive Folder ID (for reference)
 const SPREADSHEET_ID = '1LI9lVHqDvCvJDS3gCJDc5L_x4NGf4NSS-7A572h_x2U';
 const DRIVE_FOLDER_ID = '1GIaVT0A6AuGvMrgcI047eBqG0HKj4ld_';
+
+// Track if proxy is available
+let useProxy = true;
 
 // ===== LOADING OVERLAY =====
 function showLoading(show = true) {
@@ -91,30 +95,62 @@ function formatPhoneNumber(input) {
     input.value = value;
 }
 
-// ===== API CALLS (via Cloudflare Worker Proxy) =====
+// ===== API CALLS (with automatic fallback) =====
 /**
- * Make API calls to Apps Script via Cloudflare Worker proxy
+ * Make API calls with automatic proxy/direct fallback
  * @param {string} action - The action to call (verifyPin, createJob, getJobs, etc.)
  * @param {object} data - The data to send
  * @returns {Promise<object>} - The response
  */
 async function apiCall(action, data = {}) {
-    const response = await fetch(API_URL, {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            action: action,
-            ...data
-        })
-    });
+    const payload = {
+        action: action,
+        ...data
+    };
     
-    if (!response.ok) {
-        throw new Error(`API Error: ${response.status}`);
+    // Try proxy first if enabled
+    if (useProxy) {
+        try {
+            const response = await fetch(API_PROXY_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(payload)
+            });
+            
+            if (response.ok) {
+                return response.json();
+            }
+            
+            // Proxy failed - try direct connection
+            console.warn('Proxy failed, falling back to direct Apps Script');
+            useProxy = false;
+        } catch (error) {
+            console.warn('Proxy not available, using direct Apps Script:', error.message);
+            useProxy = false;
+        }
     }
     
-    return response.json();
+    // Direct Apps Script call (fallback or default)
+    try {
+        const response = await fetch(APPS_SCRIPT_URL, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'text/plain', // Apps Script requires this for CORS
+            },
+            body: JSON.stringify(payload)
+        });
+        
+        if (!response.ok) {
+            throw new Error(`API Error: ${response.status}`);
+        }
+        
+        return response.json();
+    } catch (error) {
+        console.error('Direct API call failed:', error);
+        throw new Error(`Connection failed: ${error.message}`);
+    }
 }
 
 // ===== OFFLINE DETECTION =====

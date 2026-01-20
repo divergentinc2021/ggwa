@@ -532,7 +532,14 @@
     <!-- Toast Container -->
     <div class="toast-container" id="toastContainer"></div>
     
+    <!-- Pending Jobs Indicator (shows when jobs are waiting to sync) -->
+    <div class="pending-jobs-indicator" id="pendingJobsIndicator" style="display: none;">
+        <div class="pending-icon">📤</div>
+        <span class="pending-text">0 jobs waiting to sync</span>
+    </div>
+    
     <script src="/js/common.js"></script>
+    <script src="/js/offline-sync.js"></script>
     <script src="/js/booking.js"></script>
 </body>
 </html>

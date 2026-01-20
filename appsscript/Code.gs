@@ -18,8 +18,8 @@ const CONFIG = {
   OPERATOR_PIN: '1234', // Change this in production!
   MECHANICS: ['Mike', 'Johan', 'Sipho', 'Thandi'],
   
-  // Official GG Logo
-  LOGO_URL: 'https://i.postimg.cc/sgtBrKVd/GG-Logo.png',
+  // Official GG Logo (hosted on Cloudflare Pages)
+  LOGO_URL: 'https://ggwa.pages.dev/icons/icon-192.png',
   
   // PHP Email API Configuration
   EMAIL_API: {
@@ -783,14 +783,15 @@ function verifyPin(pin) {
   }
 }
 
-// ===== CORE EMAIL FUNCTION (PHP API) =====
+// ===== CORE EMAIL FUNCTION (PHP API with Attachment Support) =====
 
 /**
  * Send email via PHP API or fallback to MailApp
  * @param {string} to - Recipient email
  * @param {string} subject - Email subject  
  * @param {string} body - HTML body content
- * @param {object} options - Optional: { cc, bcc, replyTo, isHtml }
+ * @param {object} options - Optional: { cc, bcc, replyTo, isHtml, attachment }
+ *   attachment: { base64: string, filename: string, mimeType?: string }
  */
 function sendEmail_(to, subject, body, options) {
   options = options || {};
@@ -798,7 +799,8 @@ function sendEmail_(to, subject, body, options) {
     cc: options.cc || [],
     bcc: options.bcc || [],
     replyTo: options.replyTo || CONFIG.EMAIL_API.REPLY_TO,
-    isHtml: options.isHtml !== false // Default true
+    isHtml: options.isHtml !== false, // Default true
+    attachment: options.attachment || null
   };
   
   // Use PHP API if enabled
@@ -806,7 +808,7 @@ function sendEmail_(to, subject, body, options) {
     try {
       const result = sendViaPhpApi_(to, subject, body, opts);
       if (result.success) {
-        Logger.log('Email sent via PHP API to: ' + to);
+        Logger.log('Email sent via PHP API to: ' + to + (opts.attachment ? ' (with attachment)' : ''));
         return true;
       } else {
         Logger.log('PHP API failed, falling back to MailApp: ' + result.message);
@@ -816,18 +818,30 @@ function sendEmail_(to, subject, body, options) {
     }
   }
   
-  // Fallback to MailApp
+  // Fallback to MailApp (supports attachments natively)
   try {
-    if (opts.isHtml) {
-      MailApp.sendEmail({
-        to: to,
-        subject: subject,
-        htmlBody: body,
-        replyTo: opts.replyTo
-      });
-    } else {
-      MailApp.sendEmail(to, subject, body);
+    const mailOptions = {
+      to: to,
+      subject: subject,
+      htmlBody: body,
+      replyTo: opts.replyTo
+    };
+    
+    // Add attachment if provided
+    if (opts.attachment && opts.attachment.base64) {
+      try {
+        const pdfBlob = Utilities.newBlob(
+          Utilities.base64Decode(opts.attachment.base64),
+          opts.attachment.mimeType || 'application/pdf',
+          opts.attachment.filename || 'attachment.pdf'
+        );
+        mailOptions.attachments = [pdfBlob];
+      } catch (attachError) {
+        Logger.log('Attachment decode error: ' + attachError.message);
+      }
     }
+    
+    MailApp.sendEmail(mailOptions);
     Logger.log('Email sent via MailApp to: ' + to);
     return true;
   } catch (e) {
@@ -837,7 +851,7 @@ function sendEmail_(to, subject, body, options) {
 }
 
 /**
- * Send email via PHP API endpoint
+ * Send email via PHP API endpoint (with attachment support)
  */
 function sendViaPhpApi_(to, subject, body, opts) {
   const payload = {
@@ -854,6 +868,15 @@ function sendViaPhpApi_(to, subject, body, opts) {
   }
   if (opts.bcc && opts.bcc.length > 0) {
     payload.bcc = Array.isArray(opts.bcc) ? opts.bcc : [opts.bcc];
+  }
+  
+  // Add attachment if provided
+  if (opts.attachment && opts.attachment.base64) {
+    payload.attachment = {
+      base64: opts.attachment.base64,
+      filename: opts.attachment.filename || 'attachment.pdf',
+      mimeType: opts.attachment.mimeType || 'application/pdf'
+    };
   }
   
   const options = {
@@ -1015,21 +1038,6 @@ function testApiEndpoint() {
 
 function sendConfirmationEmail_(jobId, jobData, queuePosition) {
   const subject = `[${CONFIG.SHOP_NAME}] Service Request Confirmed - ${jobId}`;
-  
-  // Build PDF attachment from client-generated base64
-  let attachments = [];
-  if (jobData.pdfBase64) {
-    try {
-      const pdfBlob = Utilities.newBlob(
-        Utilities.base64Decode(jobData.pdfBase64),
-        'application/pdf',
-        `GrannyGear_ServiceTicket_${jobId}.pdf`
-      );
-      attachments.push(pdfBlob);
-    } catch (e) {
-      Logger.log('PDF decode error: ' + e.toString());
-    }
-  }
 
   const htmlBody = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -1090,40 +1098,29 @@ function sendConfirmationEmail_(jobId, jobData, queuePosition) {
     </div>
   `;
   
-  try {
-    MailApp.sendEmail({
-      to: jobData.email,
-      subject: subject,
-      htmlBody: htmlBody,
-      replyTo: CONFIG.EMAIL_API.REPLY_TO,
-      bcc: CONFIG.SHOP_EMAIL,
-      attachments: attachments.length > 0 ? attachments : undefined
-    });
-    Logger.log('Confirmation email sent to: ' + jobData.email + ' (PDF attached: ' + (attachments.length > 0) + ')');
-    return true;
-  } catch (e) {
-    Logger.log('Email error: ' + e.toString());
-    return false;
+  // Build email options with BCC and optional PDF attachment
+  const emailOptions = {
+    bcc: [CONFIG.SHOP_EMAIL]
+  };
+  
+  // Add PDF attachment if provided
+  if (jobData.pdfBase64) {
+    emailOptions.attachment = {
+      base64: jobData.pdfBase64,
+      filename: `GrannyGear_ServiceTicket_${jobId}.pdf`,
+      mimeType: 'application/pdf'
+    };
   }
+  
+  // Use PHP API via sendEmail_ wrapper (sends from info@grannygear.co.za)
+  const result = sendEmail_(jobData.email, subject, htmlBody, emailOptions);
+  
+  Logger.log('Confirmation email sent to: ' + jobData.email + ' via ' + (CONFIG.EMAIL_API.ENABLED ? 'PHP API' : 'MailApp') + (jobData.pdfBase64 ? ' (with PDF)' : ''));
+  return result;
 }
 
 function sendShopNotification_(jobId, jobData) {
   const subject = `[NEW JOB] ${jobId} - ${jobData.firstName} ${jobData.lastName}`;
-
-    // Build PDF attachment from client-generated base64
-  let attachments = [];
-  if (jobData.pdfBase64) {
-    try {
-      const pdfBlob = Utilities.newBlob(
-        Utilities.base64Decode(jobData.pdfBase64),
-        'application/pdf',
-        `GrannyGear_ServiceTicket_${jobId}.pdf`
-      );
-      attachments.push(pdfBlob);
-    } catch (e) {
-      Logger.log('PDF decode error in shop notification: ' + e.toString());
-    }
-  }
   
   const htmlBody = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -1161,40 +1158,26 @@ function sendShopNotification_(jobId, jobData) {
     </div>
   `;
   
-    // Use MailApp directly for attachments
-    try {
-      MailApp.sendEmail({
-        to: CONFIG.SHOP_EMAIL,
-        subject: subject,
-        htmlBody: htmlBody,
-        replyTo: CONFIG.EMAIL_API.REPLY_TO,
-        attachments: attachments.length > 0 ? attachments : undefined
-      });
-      Logger.log('Shop notification sent to ' + CONFIG.SHOP_EMAIL + ' (PDF attached: ' + (attachments.length > 0) + ')');
-      return true;
-    } catch (e) {
-      Logger.log('Shop notification error: ' + e.toString());
-      return false;
-    }
+  // Build email options with optional PDF attachment
+  const emailOptions = {};
+  
+  // Add PDF attachment if provided
+  if (jobData.pdfBase64) {
+    emailOptions.attachment = {
+      base64: jobData.pdfBase64,
+      filename: `GrannyGear_ServiceTicket_${jobId}.pdf`,
+      mimeType: 'application/pdf'
+    };
+  }
+  
+  // Use PHP API via sendEmail_ wrapper (sends from info@grannygear.co.za)
+  const result = sendEmail_(CONFIG.SHOP_EMAIL, subject, htmlBody, emailOptions);
+  Logger.log('Shop notification sent to ' + CONFIG.SHOP_EMAIL + ' via ' + (CONFIG.EMAIL_API.ENABLED ? 'PHP API' : 'MailApp') + (jobData.pdfBase64 ? ' (with PDF)' : ''));
+  return result;
 }
 
 function sendCompletionEmail_(jobData, pdfBase64) {
   const subject = `[${CONFIG.SHOP_NAME}] Your bike is ready! - ${jobData.jobid}`;
-
-    // Generate completion PDF
-    let attachments = [];
-      if (pdfBase64) {
-        try {
-          const pdfBlob = Utilities.newBlob(
-            Utilities.base64Decode(pdfBase64),
-            'application/pdf',
-            `GrannyGear_CompletionReport_${jobData.jobid}.pdf`
-          );
-          attachments.push(pdfBlob);
-        } catch (e) {
-          Logger.log('Completion PDF decode error: ' + e.toString());
-        }
-      }
   
   const htmlBody = `
     <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -1236,22 +1219,24 @@ function sendCompletionEmail_(jobData, pdfBase64) {
     </div>
   `;
   
-  // Use MailApp for attachments
-  try {
-    MailApp.sendEmail({
-      to: jobData.email,
-      subject: subject,
-      htmlBody: htmlBody,
-      replyTo: CONFIG.EMAIL_API.REPLY_TO,
-      bcc: CONFIG.SHOP_EMAIL,
-      attachments: attachments.length > 0 ? attachments : undefined
-    });
-    Logger.log('Completion email sent to: ' + jobData.email + ' (PDF attached: ' + (attachments.length > 0) + ')');
-    return true;
-  } catch (e) {
-    Logger.log('Completion email error: ' + e.toString());
-    return false;
+  // Build email options with BCC and optional PDF attachment
+  const emailOptions = {
+    bcc: [CONFIG.SHOP_EMAIL]
+  };
+  
+  // Add completion PDF attachment if provided
+  if (pdfBase64) {
+    emailOptions.attachment = {
+      base64: pdfBase64,
+      filename: `GrannyGear_CompletionReport_${jobData.jobid}.pdf`,
+      mimeType: 'application/pdf'
+    };
   }
+  
+  // Use PHP API via sendEmail_ wrapper (sends from info@grannygear.co.za)
+  const result = sendEmail_(jobData.email, subject, htmlBody, emailOptions);
+  Logger.log('Completion email sent to: ' + jobData.email + ' via ' + (CONFIG.EMAIL_API.ENABLED ? 'PHP API' : 'MailApp') + (pdfBase64 ? ' (with PDF)' : ''));
+  return result;
 }
 
 /**

@@ -1,8 +1,8 @@
 /* ===== GRANNY GEAR WORKSHOP - COMMON UTILITIES ===== */
 
 // ===== API CONFIGURATION =====
-// Apps Script Web App URL - handles email, Drive, Sheets natively
-const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyhSpACfq5hYN88C4yd7YX7FEpXRjv9gA9gX6Qb9J1qp35B0IOpvl107HcT3KDFXFRx/exec';
+// Cloudflare Worker Proxy Endpoint (routes to Apps Script)
+const API_URL = '/api/proxy';
 
 // Google Sheets ID and Drive Folder ID (for reference)
 const SPREADSHEET_ID = '1LI9lVHqDvCvJDS3gCJDc5L_x4NGf4NSS-7A572h_x2U';
@@ -91,18 +91,18 @@ function formatPhoneNumber(input) {
     input.value = value;
 }
 
-// ===== API CALLS (Apps Script) =====
+// ===== API CALLS (via Cloudflare Worker Proxy) =====
 /**
- * Make API calls to Apps Script Web App
+ * Make API calls to Apps Script via Cloudflare Worker proxy
  * @param {string} action - The action to call (verifyPin, createJob, getJobs, etc.)
  * @param {object} data - The data to send
  * @returns {Promise<object>} - The response
  */
 async function apiCall(action, data = {}) {
-    const response = await fetch(APPS_SCRIPT_URL, {
+    const response = await fetch(API_URL, {
         method: 'POST',
         headers: {
-            'Content-Type': 'text/plain', // Apps Script requires this for CORS
+            'Content-Type': 'application/json',
         },
         body: JSON.stringify({
             action: action,

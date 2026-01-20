@@ -80,7 +80,7 @@
         .lobby-btn {
             display: flex;
             align-items: center;
-            gap: 15px;
+            justify-content: center;
             padding: 20px 25px;
             border: 2px solid var(--border-color);
             border-radius: var(--radius-lg);
@@ -107,24 +107,8 @@
             background: linear-gradient(135deg, var(--brand-cyan-dark) 0%, #167a9c 100%);
         }
         
-        .lobby-btn-icon {
-            width: 50px;
-            height: 50px;
-            border-radius: 50%;
-            background: var(--brand-light);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 24px;
-            flex-shrink: 0;
-        }
-        
-        .lobby-btn.primary .lobby-btn-icon {
-            background: rgba(255,255,255,0.2);
-        }
-        
         .lobby-btn-content {
-            text-align: left;
+            text-align: center;
         }
         
         .lobby-btn-content h3 {
@@ -219,7 +203,6 @@
             
             <div class="lobby-options">
                 <a href="/booking.html" class="lobby-btn primary">
-                    <div class="lobby-btn-icon">🚴</div>
                     <div class="lobby-btn-content">
                         <h3>New Service Request</h3>
                         <p>Book your bike in for repair or service</p>
@@ -227,7 +210,6 @@
                 </a>
                 
                 <button class="lobby-btn" onclick="showPinOverlay()">
-                    <div class="lobby-btn-icon">🔧</div>
                     <div class="lobby-btn-content">
                         <h3>Job Cart Manager</h3>
                         <p>Staff access - PIN required</p>
@@ -246,7 +228,7 @@
     <!-- PIN Overlay for Job Cart Access -->
     <div class="pin-overlay" id="pinOverlay">
         <div class="pin-modal">
-            <h3>🔧 Staff Login</h3>
+            <h3>Staff Login</h3>
             <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">Enter PIN to access Job Cart Manager</p>
             <div class="pin-display">
                 <div class="pin-dot" id="pinDot1"></div>

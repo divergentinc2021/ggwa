@@ -1,11 +1,8 @@
 /* ===== GRANNY GEAR WORKSHOP - SERVICE WORKER ===== */
 
-const CACHE_NAME = 'grannygear-v5';
+const CACHE_NAME = 'grannygear-v6';
 const STATIC_ASSETS = [
     '/',
-    '/index.html',
-    '/booking.html',
-    '/cart.html',
     '/booking',
     '/cart',
     '/css/styles.css',

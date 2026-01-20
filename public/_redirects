@@ -1,0 +1,4 @@
+# Redirect .html URLs to clean URLs
+/index.html     /           301
+/booking.html   /booking    301
+/cart.html      /cart       301

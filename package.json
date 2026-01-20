@@ -1,0 +1,16 @@
+{
+  "name": "grannygear-workshop",
+  "version": "1.0.0",
+  "description": "Granny Gear Workshop Management System - PWA",
+  "scripts": {
+    "dev": "wrangler pages dev public --binding SPREADSHEET_ID=1LI9lVHqDvCvJDS3gCJDc5L_x4NGf4NSS-7A572h_x2U",
+    "deploy": "wrangler pages deploy public",
+    "build": "echo 'No build step required'"
+  },
+  "keywords": ["bike", "workshop", "pwa", "cloudflare"],
+  "author": "Granny Gear",
+  "license": "MIT",
+  "devDependencies": {
+    "wrangler": "^3.0.0"
+  }
+}

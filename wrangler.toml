@@ -1,0 +1,7 @@
+name = "grannygear-workshop"
+compatibility_date = "2024-01-01"
+pages_build_output_dir = "public"
+
+# NOTE: All backend operations are handled by Google Apps Script
+# No Cloudflare Functions needed
+# The Apps Script URL is configured in public/js/common.js

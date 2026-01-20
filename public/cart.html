@@ -1,0 +1,874 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#1A1A1A">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Granny Gear">
+    <meta name="description" content="Granny Gear Workshop Job Cart Manager">
+    
+    <title>Job Cart Manager - Granny Gear</title>
+    
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
+    <link rel="stylesheet" href="/css/styles.css">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <style>
+        /* Cart Manager specific styles */
+        body {
+            background-color: #ECEFF1;
+        }
+        
+        .job-cart-app {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        
+        .job-cart-header {
+            background: var(--brand-dark);
+            padding: 12px 20px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            flex-wrap: wrap;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+        
+        .header-logo-section {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .header-logo-section h1 {
+            font-size: 18px;
+            color: white;
+            font-weight: 600;
+        }
+        
+        .header-logo-section h1 span {
+            color: var(--brand-cyan);
+        }
+        
+        .header-stats {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+        }
+        
+        .stat-pill {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            color: rgba(255,255,255,0.8);
+        }
+        
+        .stat-pill .count {
+            background: rgba(255,255,255,0.2);
+            padding: 2px 10px;
+            border-radius: 12px;
+            font-weight: 700;
+            font-size: 12px;
+            color: white;
+        }
+        
+        .stat-pill.pending .count { background: var(--warning-orange); }
+        .stat-pill.triaged .count { background: var(--brand-yellow); color: var(--brand-dark); }
+        .stat-pill.progress .count { background: var(--brand-cyan); }
+        .stat-pill.completed .count { background: var(--success-green); }
+        
+        .header-controls {
+            display: flex;
+            gap: 8px;
+            margin-left: auto;
+            align-items: center;
+        }
+        
+        .header-btn {
+            padding: 8px 14px;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: var(--radius-md);
+            background: transparent;
+            color: white;
+            font-size: 13px;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            text-decoration: none;
+        }
+        
+        .header-btn:hover {
+            background: rgba(255,255,255,0.1);
+            border-color: rgba(255,255,255,0.5);
+        }
+        
+        .live-badge {
+            background: var(--success-green);
+            color: white;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .live-badge::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            background: white;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        .refresh-indicator {
+            font-size: 11px;
+            color: rgba(255,255,255,0.6);
+        }
+        
+        .view-toggle {
+            display: flex;
+            border: 1px solid rgba(255,255,255,0.3);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+        }
+        
+        .view-toggle-btn {
+            padding: 6px 12px;
+            border: none;
+            background: transparent;
+            color: rgba(255,255,255,0.7);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .view-toggle-btn:hover {
+            background: rgba(255,255,255,0.1);
+        }
+        
+        .view-toggle-btn.active {
+            background: var(--brand-cyan);
+            color: white;
+        }
+        
+        /* Kanban Board */
+        .kanban-board {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
+            padding: 20px;
+            flex: 1;
+            overflow: auto;
+        }
+        
+        @media (max-width: 1200px) { .kanban-board { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 768px) { .kanban-board { grid-template-columns: 1fr; } }
+        
+        .kanban-column {
+            background: white;
+            border-radius: var(--radius-lg);
+            box-shadow: var(--shadow-sm);
+            display: flex;
+            flex-direction: column;
+            max-height: calc(100vh - 100px);
+        }
+        
+        .column-header {
+            padding: 15px 20px;
+            border-bottom: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            flex-shrink: 0;
+        }
+        
+        .column-header h3 {
+            font-size: 14px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+        }
+        
+        .column-header .badge {
+            background: var(--brand-light);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+        
+        .column-header.pending { border-left: 4px solid var(--warning-orange); }
+        .column-header.triaged { border-left: 4px solid var(--brand-yellow); }
+        .column-header.in-progress { border-left: 4px solid var(--brand-cyan); }
+        .column-header.completed { border-left: 4px solid var(--success-green); }
+        
+        .column-body {
+            padding: 15px;
+            flex: 1;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+        
+        .column-body.empty {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: var(--text-muted);
+            font-style: italic;
+            min-height: 100px;
+        }
+        
+        /* Job Cards */
+        .job-card {
+            background: var(--brand-light);
+            border-radius: var(--radius-md);
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border-left: 4px solid transparent;
+        }
+        
+        .job-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+        .job-card.urgent, .job-card.high { border-left-color: var(--brand-red); }
+        .job-card.medium { border-left-color: var(--warning-orange); }
+        .job-card.low { border-left-color: var(--success-green); }
+        
+        .job-card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            margin-bottom: 10px;
+        }
+        
+        .job-id { font-weight: 700; color: var(--brand-dark); }
+        
+        .urgency-badge {
+            font-size: 10px;
+            padding: 3px 8px;
+            border-radius: 10px;
+            font-weight: 600;
+            text-transform: uppercase;
+        }
+        
+        .urgency-badge.high { background: #FDEDEE; color: var(--brand-red); }
+        .urgency-badge.medium { background: #FEF5E7; color: var(--warning-orange); }
+        .urgency-badge.low { background: #E8F5E9; color: var(--success-green); }
+        .urgency-badge.new { background: #E8F7FC; color: var(--brand-cyan); }
+        
+        .job-card .customer-name { font-weight: 600; margin-bottom: 5px; }
+        .job-card .bike-info { font-size: 13px; color: var(--text-secondary); margin-bottom: 8px; }
+        
+        .job-card .service-badge {
+            display: inline-block;
+            padding: 4px 10px;
+            background: white;
+            border-radius: var(--radius-sm);
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--brand-cyan);
+            border: 1px solid var(--brand-cyan);
+        }
+        
+        .job-card-actions {
+            margin-top: 12px;
+            padding-top: 12px;
+            border-top: 1px solid var(--border-color);
+        }
+        
+        .job-card-actions .btn { padding: 8px 14px; font-size: 12px; width: 100%; }
+        
+        .time-note { font-size: 11px; color: var(--text-muted); margin-top: 8px; }
+        .done-note { font-size: 11px; color: var(--success-green); margin-top: 8px; }
+        
+        /* List View */
+        .list-view {
+            display: none;
+            flex: 1;
+            overflow: auto;
+            padding: 20px;
+        }
+        
+        .list-view.active { display: block; }
+        .kanban-board.hidden { display: none; }
+        
+        .list-filters {
+            display: flex;
+            gap: 12px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+        
+        .search-input-wrapper {
+            flex: 1;
+            min-width: 200px;
+            position: relative;
+        }
+        
+        .search-input-wrapper input {
+            width: 100%;
+            padding: 10px 15px 10px 40px;
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-md);
+            font-size: 14px;
+        }
+        
+        .search-input-wrapper input:focus {
+            outline: none;
+            border-color: var(--brand-cyan);
+        }
+        
+        .search-input-wrapper::before {
+            content: '🔍';
+            position: absolute;
+            left: 12px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        
+        .filter-select {
+            padding: 10px 15px;
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            min-width: 140px;
+        }
+        
+        .filter-results {
+            font-size: 13px;
+            color: var(--text-muted);
+            padding: 5px 10px;
+            background: var(--brand-light);
+            border-radius: var(--radius-sm);
+        }
+        
+        .list-table {
+            width: 100%;
+            background: white;
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            box-shadow: var(--shadow-sm);
+        }
+        
+        .list-table table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        .list-table th {
+            background: var(--brand-light);
+            padding: 12px 15px;
+            text-align: left;
+            font-size: 12px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-secondary);
+            border-bottom: 2px solid var(--border-color);
+        }
+        
+        .list-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--border-color);
+            font-size: 14px;
+        }
+        
+        .list-table tr:hover {
+            background: #f8f9fa;
+            cursor: pointer;
+        }
+        
+        .list-table .status-cell {
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            display: inline-block;
+        }
+        
+        .list-table .status-pending { background: #FEF5E7; color: var(--warning-orange); }
+        .list-table .status-triaged { background: #FFFCE8; color: #997A00; }
+        .list-table .status-in-progress { background: #E8F7FC; color: var(--brand-cyan-dark); }
+        .list-table .status-completed { background: #E8F5E9; color: var(--success-green); }
+        
+        /* Job Detail Panel */
+        .job-detail-overlay {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            left: 0;
+            background: rgba(0,0,0,0.5);
+            display: none;
+            z-index: 2000;
+        }
+        
+        .job-detail-overlay.active { display: block; }
+        
+        .job-detail-panel {
+            position: fixed;
+            top: 0;
+            right: 0;
+            bottom: 0;
+            width: 450px;
+            max-width: 100%;
+            background: white;
+            box-shadow: var(--shadow-lg);
+            transform: translateX(100%);
+            transition: transform 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            z-index: 2001;
+        }
+        
+        .job-detail-overlay.active .job-detail-panel { transform: translateX(0); }
+        
+        .detail-header {
+            padding: 20px;
+            background: var(--brand-dark);
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .detail-header h2 { font-size: 18px; }
+        
+        .close-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 28px;
+            cursor: pointer;
+            padding: 5px;
+            line-height: 1;
+        }
+        
+        .detail-body { padding: 20px; flex: 1; overflow-y: auto; }
+        .detail-section { margin-bottom: 25px; }
+        
+        .detail-section h4 {
+            font-size: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: var(--text-muted);
+            margin-bottom: 10px;
+        }
+        
+        .customer-info-grid { display: grid; gap: 8px; }
+        
+        .customer-info-grid .info-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 14px;
+        }
+        
+        .customer-info-grid .info-item .label { color: var(--text-muted); min-width: 60px; }
+        
+        .triage-controls {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .triage-controls label {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-secondary);
+            display: block;
+            margin-bottom: 6px;
+        }
+        
+        .triage-controls select {
+            width: 100%;
+            padding: 10px;
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-md);
+            font-size: 14px;
+        }
+        
+        .work-notes-area {
+            width: 100%;
+            min-height: 100px;
+            padding: 12px;
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+        }
+        
+        .work-notes-area:focus {
+            outline: none;
+            border-color: var(--brand-cyan);
+        }
+        
+        .detail-footer {
+            padding: 20px;
+            border-top: 1px solid var(--border-color);
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .detail-footer .btn { flex: 1; min-width: 120px; }
+        
+        /* Cancel Modal */
+        .cancel-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0,0,0,0.6);
+            display: none;
+            align-items: center;
+            justify-content: center;
+            z-index: 3000;
+        }
+        
+        .cancel-modal-overlay.active { display: flex; }
+        
+        .cancel-modal {
+            background: white;
+            border-radius: var(--radius-lg);
+            padding: 30px;
+            max-width: 400px;
+            width: 90%;
+        }
+        
+        .cancel-modal h3 {
+            color: var(--error-red);
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .cancel-modal p { color: var(--text-secondary); margin-bottom: 20px; }
+        
+        .cancel-modal textarea {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            font-family: inherit;
+            resize: vertical;
+            min-height: 80px;
+            margin-bottom: 20px;
+        }
+        
+        .cancel-modal-actions { display: flex; gap: 10px; }
+        .cancel-modal-actions .btn { flex: 1; }
+        
+        /* Archive action */
+        .archive-action {
+            padding: 10px 15px;
+            border-top: 1px dashed var(--border-color);
+            text-align: center;
+        }
+        
+        .archive-btn {
+            padding: 8px 16px;
+            border: 1px dashed var(--text-muted);
+            border-radius: var(--radius-md);
+            background: transparent;
+            color: var(--text-muted);
+            font-size: 12px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .archive-btn:hover {
+            border-color: var(--brand-cyan);
+            color: var(--brand-cyan);
+            background: #E8F7FC;
+        }
+        
+        /* Responsive */
+        @media (max-width: 900px) {
+            .job-cart-header {
+                flex-wrap: wrap;
+                gap: 10px;
+            }
+            
+            .header-stats {
+                order: 3;
+                width: 100%;
+                justify-content: center;
+                padding-top: 10px;
+                border-top: 1px solid rgba(255,255,255,0.1);
+            }
+            
+            .header-controls { margin-left: 0; }
+            .refresh-indicator { display: none; }
+        }
+        
+        @media (max-width: 600px) {
+            .job-detail-panel { width: 100%; }
+            .triage-controls { grid-template-columns: 1fr; }
+            .detail-footer { flex-direction: column; }
+            .detail-footer .btn { width: 100%; min-width: unset; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <span>Processing...</span>
+    </div>
+    
+    <!-- Offline Banner -->
+    <div class="offline-banner" id="offlineBanner">
+        📡 You're offline - Some features may be limited
+    </div>
+    
+    <!-- Main App -->
+    <div class="job-cart-app">
+        <div class="job-cart-header">
+            <div class="header-logo-section">
+                <img src="/icons/icon-192.png" alt="Granny Gear" class="logo-img-small">
+                <h1>Job <span>Cart</span> Manager</h1>
+            </div>
+            
+            <div class="header-stats">
+                <div class="stat-pill pending">
+                    <span>Pending</span>
+                    <span class="count" id="statPending">0</span>
+                </div>
+                <div class="stat-pill triaged">
+                    <span>Triaged</span>
+                    <span class="count" id="statTriaged">0</span>
+                </div>
+                <div class="stat-pill progress">
+                    <span>In Progress</span>
+                    <span class="count" id="statProgress">0</span>
+                </div>
+                <div class="stat-pill completed">
+                    <span>Done Today</span>
+                    <span class="count" id="statCompleted">0</span>
+                </div>
+            </div>
+            
+            <div class="header-controls">
+                <div class="view-toggle">
+                    <button class="view-toggle-btn active" onclick="setView('card')" id="viewCardBtn">▦ Cards</button>
+                    <button class="view-toggle-btn" onclick="setView('list')" id="viewListBtn">☰ List</button>
+                </div>
+                <button class="header-btn" onclick="loadAllJobs()">⟳ Refresh</button>
+                <span class="refresh-indicator" id="refreshIndicator">Updated just now</span>
+                <span class="live-badge">Live</span>
+                <a href="/" class="header-btn" onclick="logoutOperator()">✕ Exit</a>
+            </div>
+        </div>
+        
+        <!-- Card View (Kanban Board) -->
+        <div class="kanban-board" id="kanbanBoard">
+            <div class="kanban-column">
+                <div class="column-header pending">
+                    <h3>Pending</h3>
+                    <span class="badge" id="badgePending">0</span>
+                </div>
+                <div class="column-body" id="columnPending">
+                    <div class="empty">No pending jobs</div>
+                </div>
+            </div>
+            
+            <div class="kanban-column">
+                <div class="column-header triaged">
+                    <h3>Triaged</h3>
+                    <span class="badge" id="badgeTriaged">0</span>
+                </div>
+                <div class="column-body" id="columnTriaged">
+                    <div class="empty">No triaged jobs</div>
+                </div>
+            </div>
+            
+            <div class="kanban-column">
+                <div class="column-header in-progress">
+                    <h3>In Progress</h3>
+                    <span class="badge" id="badgeProgress">0</span>
+                </div>
+                <div class="column-body" id="columnProgress">
+                    <div class="empty">No jobs in progress</div>
+                </div>
+            </div>
+            
+            <div class="kanban-column">
+                <div class="column-header completed">
+                    <h3>Completed</h3>
+                    <span class="badge" id="badgeCompleted">0</span>
+                </div>
+                <div class="column-body" id="columnCompleted">
+                    <div class="empty">No completed jobs</div>
+                </div>
+                <div class="archive-action" id="archiveAction" style="display: none;">
+                    <button class="archive-btn" onclick="archiveAllCompleted()">📦 Archive All Completed</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- List View -->
+        <div class="list-view" id="listView">
+            <div class="list-filters">
+                <div class="search-input-wrapper">
+                    <input type="text" id="jobSearchInput" placeholder="Search by name, job ID, bike..." oninput="filterJobList()">
+                </div>
+                <select class="filter-select" id="statusFilter" onchange="filterJobList()">
+                    <option value="">All Statuses</option>
+                    <option value="pending">Pending</option>
+                    <option value="triaged">Triaged</option>
+                    <option value="in-progress">In Progress</option>
+                    <option value="completed">Completed</option>
+                </select>
+                <select class="filter-select" id="urgencyFilter" onchange="filterJobList()">
+                    <option value="">All Urgency</option>
+                    <option value="high">High</option>
+                    <option value="medium">Medium</option>
+                    <option value="low">Low</option>
+                </select>
+                <span class="filter-results" id="filterResults">0 jobs</span>
+            </div>
+            
+            <div class="list-table">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Job ID</th>
+                            <th>Customer</th>
+                            <th>Bike</th>
+                            <th>Service</th>
+                            <th>Status</th>
+                            <th>Urgency</th>
+                            <th>Created</th>
+                        </tr>
+                    </thead>
+                    <tbody id="listTableBody"></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Job Detail Panel Overlay -->
+    <div class="job-detail-overlay" id="jobDetailOverlay" onclick="closeJobDetail()">
+        <div class="job-detail-panel" onclick="event.stopPropagation()">
+            <div class="detail-header">
+                <h2 id="detailJobId">Job #-</h2>
+                <button class="close-btn" onclick="closeJobDetail()">&times;</button>
+            </div>
+            <div class="detail-body">
+                <div class="detail-section">
+                    <h4>Customer Information</h4>
+                    <div class="customer-info-grid">
+                        <div class="info-item">
+                            <span class="label">Name</span>
+                            <span id="detailName">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">Phone</span>
+                            <span id="detailPhone">-</span>
+                        </div>
+                        <div class="info-item">
+                            <span class="label">Email</span>
+                            <span id="detailEmail">-</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="detail-section">
+                    <h4>Bike</h4>
+                    <p id="detailBike"><strong>-</strong></p>
+                    <p style="font-size: 13px; color: var(--text-secondary);">Needed by: <span id="detailNeededBy">-</span></p>
+                </div>
+                
+                <div class="detail-section">
+                    <h4>Service: <span id="detailServiceType">-</span></h4>
+                    <div id="detailChecklist" style="background: var(--brand-light); padding: 12px; border-radius: var(--radius-md); font-size: 13px;">-</div>
+                </div>
+                
+                <div class="detail-section">
+                    <h4>Description</h4>
+                    <p id="detailDescription" style="font-size: 14px; color: var(--text-secondary);">-</p>
+                </div>
+                
+                <div class="detail-section">
+                    <h4>Triage</h4>
+                    <div class="triage-controls">
+                        <div>
+                            <label>Urgency</label>
+                            <select id="detailUrgency">
+                                <option value="low">Low</option>
+                                <option value="medium">Medium</option>
+                                <option value="high">High</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label>Complexity</label>
+                            <select id="detailComplexity">
+                                <option value="simple">Simple</option>
+                                <option value="moderate">Moderate</option>
+                                <option value="complex">Complex</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="detail-section">
+                    <h4>Work Notes</h4>
+                    <textarea class="work-notes-area" id="detailWorkNotes" placeholder="Add notes during repair..."></textarea>
+                </div>
+            </div>
+            <div class="detail-footer" id="detailFooter">
+                <button class="btn btn-secondary" onclick="closeJobDetail()">Close</button>
+                <button class="btn btn-danger" id="detailCancelBtn" onclick="showCancelModal()" style="display: none;">Cancel Job</button>
+                <button class="btn btn-primary" id="detailActionBtn" onclick="handleJobAction()">Save & Triage</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Cancel Job Modal -->
+    <div class="cancel-modal-overlay" id="cancelModalOverlay">
+        <div class="cancel-modal">
+            <h3>⚠️ Cancel Job</h3>
+            <p>Are you sure you want to cancel this job? The customer will be notified via email.</p>
+            <p><strong>Job:</strong> <span id="cancelJobId">-</span></p>
+            <textarea id="cancelReason" placeholder="Enter reason for cancellation (optional but recommended)..."></textarea>
+            <div class="cancel-modal-actions">
+                <button class="btn btn-secondary" onclick="hideCancelModal()">Go Back</button>
+                <button class="btn btn-danger" onclick="confirmCancelJob()">Cancel Job & Notify Customer</button>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+    
+    <script src="/js/common.js"></script>
+    <script src="/js/cart.js"></script>
+</body>
+</html>

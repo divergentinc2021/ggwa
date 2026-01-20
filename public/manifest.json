@@ -1,0 +1,88 @@
+{
+    "name": "Granny Gear Workshop",
+    "short_name": "GrannyGear",
+    "description": "Workshop Management System for Granny Gear bicycle service",
+    "start_url": "/",
+    "display": "standalone",
+    "background_color": "#1E8BBB",
+    "theme_color": "#29ABE2",
+    "orientation": "portrait-primary",
+    "scope": "/",
+    "icons": [
+        {
+            "src": "/icons/icon-72.png",
+            "sizes": "72x72",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/icons/icon-96.png",
+            "sizes": "96x96",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/icons/icon-128.png",
+            "sizes": "128x128",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/icons/icon-144.png",
+            "sizes": "144x144",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/icons/icon-152.png",
+            "sizes": "152x152",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/icons/icon-192.png",
+            "sizes": "192x192",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/icons/icon-384.png",
+            "sizes": "384x384",
+            "type": "image/png",
+            "purpose": "any maskable"
+        },
+        {
+            "src": "/icons/icon-512.png",
+            "sizes": "512x512",
+            "type": "image/png",
+            "purpose": "any maskable"
+        }
+    ],
+    "categories": ["business", "productivity"],
+    "shortcuts": [
+        {
+            "name": "New Service Request",
+            "short_name": "New Job",
+            "description": "Book a bike for service",
+            "url": "/booking.html",
+            "icons": [
+                {
+                    "src": "/icons/icon-96.png",
+                    "sizes": "96x96"
+                }
+            ]
+        },
+        {
+            "name": "Job Cart Manager",
+            "short_name": "Cart",
+            "description": "Manage workshop jobs",
+            "url": "/cart.html",
+            "icons": [
+                {
+                    "src": "/icons/icon-96.png",
+                    "sizes": "96x96"
+                }
+            ]
+        }
+    ]
+}

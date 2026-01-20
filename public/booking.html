@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#29ABE2">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Granny Gear">
+    <meta name="description" content="Book your bike for service at Granny Gear">
+    
+    <title>New Service Request - Granny Gear</title>
+    
+    <link rel="manifest" href="/manifest.json">
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
+    <link rel="stylesheet" href="/css/styles.css">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <style>
+        /* Booking-specific styles */
+        .job-form-app {
+            background: linear-gradient(135deg, var(--brand-cyan) 0%, var(--brand-cyan-dark) 100%);
+            min-height: 100vh;
+        }
+        
+        .job-form-header {
+            text-align: center;
+            padding: 15px 20px 20px;
+            color: white;
+        }
+        
+        .job-form-header .logo-name { font-size: 36px; color: white; }
+        .job-form-header h1 { font-size: 22px; font-weight: 600; margin-bottom: 5px; }
+        .job-form-header p { opacity: 0.9; font-size: 14px; }
+        
+        .back-link {
+            position: absolute;
+            top: 15px;
+            left: 15px;
+            color: white;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+            font-size: 14px;
+            opacity: 0.8;
+            transition: opacity 0.2s;
+        }
+        
+        .back-link:hover { opacity: 1; }
+        
+        .form-container { max-width: 600px; margin: 0 auto; padding: 0 20px 40px; }
+        
+        .form-card {
+            background: white;
+            border-radius: var(--radius-lg);
+            padding: 30px;
+            box-shadow: var(--shadow-lg);
+        }
+        
+        .step-indicator {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 30px;
+        }
+        
+        .step-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            background: var(--border-color);
+            transition: all 0.3s ease;
+        }
+        
+        .step-dot.active { background: var(--brand-cyan); transform: scale(1.2); }
+        .step-dot.completed { background: var(--success-green); }
+        
+        .form-step { display: none; }
+        .form-step.active {
+            display: block;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .form-step h2 {
+            font-size: 20px;
+            color: var(--brand-dark);
+            margin-bottom: 20px;
+            padding-bottom: 10px;
+            border-bottom: 3px solid var(--brand-cyan);
+        }
+        
+        .date-options {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .date-option-btn {
+            padding: 8px 14px;
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-md);
+            background: white;
+            cursor: pointer;
+            font-size: 13px;
+            font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        
+        .date-option-btn:hover { border-color: var(--brand-cyan-light); background: #E8F7FC; }
+        .date-option-btn.selected { border-color: var(--brand-cyan); background: var(--brand-cyan); color: white; }
+        
+        .bike-type-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-top: 8px;
+        }
+        
+        .bike-type-option {
+            padding: 14px 12px;
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-md);
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-size: 13px;
+            font-weight: 600;
+        }
+        
+        .bike-type-option:hover { border-color: var(--brand-cyan-light); background: #E8F7FC; }
+        .bike-type-option.selected { border-color: var(--brand-cyan); background: var(--brand-cyan); color: white; }
+        
+        .service-type-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+            margin-bottom: 25px;
+        }
+        
+        .service-type-card {
+            padding: 20px 15px;
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-md);
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .service-type-card:hover {
+            border-color: var(--brand-cyan-light);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+        
+        .service-type-card.selected {
+            border-color: var(--brand-cyan);
+            background: linear-gradient(135deg, var(--brand-cyan) 0%, var(--brand-cyan-dark) 100%);
+            color: white;
+        }
+        
+        .service-type-card h3 { font-size: 16px; margin-bottom: 5px; }
+        .service-type-card p { font-size: 12px; opacity: 0.8; }
+        
+        .checklist-section {
+            background: var(--brand-light);
+            border-radius: var(--radius-md);
+            padding: 20px;
+            margin-bottom: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .checklist-section h4 {
+            font-size: 14px;
+            color: var(--brand-dark);
+            margin-bottom: 15px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .checklist-item {
+            display: flex;
+            align-items: flex-start;
+            gap: 10px;
+            padding: 10px 0;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .checklist-item:last-child { border-bottom: none; }
+        
+        .checklist-item input[type="checkbox"] {
+            width: 20px;
+            height: 20px;
+            margin-top: 2px;
+            accent-color: var(--brand-cyan);
+        }
+        
+        .checklist-item label { font-size: 14px; cursor: pointer; flex: 1; }
+        
+        .helper-text {
+            background: #FFFCE8;
+            border-left: 4px solid var(--brand-yellow);
+            padding: 12px 15px;
+            margin-bottom: 20px;
+            border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+            font-size: 13px;
+            color: var(--text-secondary);
+        }
+        
+        .customer-summary {
+            background: var(--brand-light);
+            padding: 12px 15px;
+            border-radius: var(--radius-md);
+            margin-bottom: 20px;
+        }
+        
+        .job-id-badge {
+            background: var(--brand-dark);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 6px;
+            font-weight: bold;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+        
+        /* Confirmation Screen */
+        .confirmation-screen { text-align: center; padding: 40px 20px; }
+        
+        .confirmation-icon {
+            width: 80px;
+            height: 80px;
+            background: var(--success-green);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 20px;
+            font-size: 36px;
+            color: white;
+            font-weight: bold;
+        }
+        
+        .confirmation-screen h2 { color: var(--brand-dark); margin-bottom: 10px; border: none; padding: 0; }
+        
+        .queue-number {
+            font-size: 48px;
+            font-weight: 700;
+            color: var(--brand-cyan);
+            margin: 20px 0;
+        }
+        
+        .queue-number span {
+            font-size: 18px;
+            color: var(--text-secondary);
+            display: block;
+            font-weight: 400;
+        }
+        
+        .confirmation-actions { display: flex; flex-direction: column; gap: 12px; margin-top: 25px; }
+        
+        .email-status {
+            padding: 12px 16px;
+            border-radius: var(--radius-md);
+            font-size: 14px;
+            margin-top: 15px;
+        }
+        
+        .email-status.success { background: #E8F5E9; color: var(--success-green); }
+        .email-status.info { background: #E8F7FC; color: var(--brand-cyan-dark); }
+        .email-status.error { background: #FDEDEE; color: var(--error-red); }
+        
+        @media (max-width: 600px) {
+            .bike-type-grid { grid-template-columns: repeat(2, 1fr); }
+            .service-type-grid { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <span>Processing...</span>
+    </div>
+    
+    <!-- Offline Banner -->
+    <div class="offline-banner" id="offlineBanner">
+        📡 You're offline - Some features may be limited
+    </div>
+    
+    <!-- Main App -->
+    <div class="job-form-app">
+        <a href="/" class="back-link">← Back to Menu</a>
+        
+        <div class="job-form-header">
+            <div class="logo-container">
+                <img src="/icons/icon-192.png" alt="Granny Gear" class="logo-img" id="logoImg">
+                <span class="logo-name">grannygear</span>
+            </div>
+            <h1>Workshop Service Request</h1>
+            <p>Fill in your details to book a service</p>
+        </div>
+        
+        <div class="form-container">
+            <div class="form-card">
+                <div class="step-indicator">
+                    <div class="step-dot active" data-step="1"></div>
+                    <div class="step-dot" data-step="2"></div>
+                    <div class="step-dot" data-step="3"></div>
+                    <div class="step-dot" data-step="4"></div>
+                </div>
+                
+                <!-- Step 1: Customer Details -->
+                <div class="form-step active" data-step="1">
+                    <h2>Your Details</h2>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>First Name</label>
+                            <input type="text" id="firstName" placeholder="John" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Last Name</label>
+                            <input type="text" id="lastName" placeholder="Smith" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Email Address</label>
+                        <input type="email" id="email" placeholder="john@example.com" 
+                               onblur="validateEmailField(this)"
+                               oninput="clearValidation(this)">
+                        <span class="field-error" id="emailError">Please enter a valid email address</span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Phone Number</label>
+                        <input type="tel" id="phone" placeholder="082 123 4567" required
+                               maxlength="12"
+                               oninput="formatPhoneNumber(this)"
+                               onblur="validatePhoneField(this)">
+                        <span class="field-error" id="phoneError">Phone must be 0XX XXX XXXX (e.g. 082 123 4567)</span>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Board Number <span class="optional">(Optional - numbers only, max 5 digits)</span></label>
+                        <input type="text" id="boardNumber" placeholder="12345"
+                               maxlength="5"
+                               oninput="this.value = this.value.replace(/[^0-9]/g, ''); clearValidation(this)"
+                               onblur="validateBoardField(this)">
+                        <span class="field-error" id="boardError">Board number must be 1-5 digits only</span>
+                    </div>
+                    
+                    <button class="btn btn-primary btn-block" onclick="nextStep(2)">Next: Bike Details</button>
+                </div>
+                
+                <!-- Step 2: Bike Details -->
+                <div class="form-step" data-step="2">
+                    <h2>Your Bike</h2>
+                    
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Brand</label>
+                            <select id="bikeBrand">
+                                <option value="">Select brand...</option>
+                                <option value="Specialized">Specialized</option>
+                                <option value="Trek">Trek</option>
+                                <option value="Giant">Giant</option>
+                                <option value="Cannondale">Cannondale</option>
+                                <option value="Scott">Scott</option>
+                                <option value="Merida">Merida</option>
+                                <option value="Santa Cruz">Santa Cruz</option>
+                                <option value="Pivot">Pivot</option>
+                                <option value="BMC">BMC</option>
+                                <option value="Other">Other</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Model</label>
+                            <input type="text" id="bikeModel" placeholder="e.g. Rockhopper Expert">
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Bike Type</label>
+                        <div class="bike-type-grid" id="bikeTypeGrid">
+                            <div class="bike-type-option" data-type="MTB" onclick="selectBikeType(this, 'MTB')">MTB</div>
+                            <div class="bike-type-option" data-type="Road" onclick="selectBikeType(this, 'Road')">Road</div>
+                            <div class="bike-type-option" data-type="Gravel" onclick="selectBikeType(this, 'Gravel')">Gravel</div>
+                            <div class="bike-type-option" data-type="Hybrid" onclick="selectBikeType(this, 'Hybrid')">Hybrid</div>
+                            <div class="bike-type-option" data-type="E-Bike" onclick="selectBikeType(this, 'E-Bike')">E-Bike</div>
+                            <div class="bike-type-option" data-type="Kids" onclick="selectBikeType(this, 'Kids')">Kids</div>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>When do you need the bike ready?</label>
+                        <div class="date-options">
+                            <button type="button" class="date-option-btn" onclick="setQuickDate('asap')">ASAP</button>
+                            <button type="button" class="date-option-btn" onclick="setQuickDate('tomorrow')">Tomorrow</button>
+                            <button type="button" class="date-option-btn" onclick="setQuickDate('3days')">In 3 Days</button>
+                            <button type="button" class="date-option-btn" onclick="setQuickDate('week')">Next Week</button>
+                            <button type="button" class="date-option-btn" onclick="setQuickDate('custom')">Pick Date</button>
+                        </div>
+                        <input type="date" id="neededByDate" onchange="selectCustomDate()">
+                    </div>
+                    
+                    <div class="btn-group">
+                        <button class="btn btn-secondary" onclick="nextStep(1)">Back</button>
+                        <button class="btn btn-accent" onclick="showOperatorPinPad()">Hand to Operator</button>
+                    </div>
+                </div>
+                
+                <!-- Step 3: Operator Service Selection -->
+                <div class="form-step" data-step="3">
+                    <h2>Service Selection</h2>
+                    
+                    <div class="helper-text">
+                        <strong>Operator:</strong> Select the service type and check all applicable items.
+                    </div>
+                    
+                    <div class="customer-summary" id="customerSummary">
+                        <strong>Customer:</strong> <span id="summaryName">-</span><br>
+                        <span style="color: var(--text-secondary);"><span id="summaryBike">-</span></span><br>
+                        <span style="color: var(--text-muted); font-size: 13px;">Needed by: <span id="summaryDate">-</span></span>
+                    </div>
+                    
+                    <h4 style="margin-bottom: 12px; color: var(--text-secondary);">Service Type</h4>
+                    <div class="service-type-grid" id="serviceTypeGrid">
+                        <div class="service-type-card" data-service="Basic" onclick="selectServiceType(this, 'Basic')">
+                            <h3>Basic</h3>
+                            <p>Quick check & tune</p>
+                        </div>
+                        <div class="service-type-card" data-service="Standard" onclick="selectServiceType(this, 'Standard')">
+                            <h3>Standard</h3>
+                            <p>Full inspection</p>
+                        </div>
+                        <div class="service-type-card" data-service="Major" onclick="selectServiceType(this, 'Major')">
+                            <h3>Major</h3>
+                            <p>Complete overhaul</p>
+                        </div>
+                        <div class="service-type-card" data-service="Pre-Race" onclick="selectServiceType(this, 'Pre-Race')">
+                            <h3>Pre-Race</h3>
+                            <p>Competition ready</p>
+                        </div>
+                    </div>
+                    
+                    <div class="checklist-section" id="checklistSection">
+                        <!-- Checklist items will be generated by JS -->
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Problem Description / Notes</label>
+                        <textarea id="description" rows="3" placeholder="Describe any issues the customer mentioned..."></textarea>
+                    </div>
+                    
+                    <div class="btn-group">
+                        <button class="btn btn-secondary" onclick="nextStep(2)">Back</button>
+                        <button class="btn btn-primary" onclick="submitJob()" id="submitBtn">Submit to Queue</button>
+                    </div>
+                </div>
+                
+                <!-- Step 4: Confirmation -->
+                <div class="form-step" data-step="4">
+                    <div class="confirmation-screen">
+                        <div class="confirmation-icon">✓</div>
+                        <h2>Job Successfully Submitted!</h2>
+                        <p style="color: var(--text-secondary); margin-bottom: 10px;">
+                            A confirmation has been sent to<br>
+                            <strong id="confirmEmailAddress">-</strong>
+                        </p>
+                        
+                        <div class="queue-number">
+                            #<span id="queuePosition">-</span>
+                            <span>Your position in the queue</span>
+                        </div>
+                        
+                        <div id="emailStatus" class="email-status info" style="display: none;"></div>
+                        
+                        <p style="margin: 15px 0; font-size: 14px; color: var(--text-secondary);">
+                            Job ID: <strong id="confirmJobId">-</strong>
+                        </p>
+                        
+                        <div class="confirmation-actions">
+                            <button class="btn btn-primary btn-block" onclick="downloadPDF()">Download Service Ticket PDF</button>
+                            <a href="/" class="btn btn-secondary btn-block">Return to Menu</a>
+                            <button class="btn btn-accent btn-block" onclick="startNewJob()">Start New Job</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- PIN Pad Overlay (for job handoff) -->
+    <div class="pin-overlay" id="pinOverlay">
+        <div class="pin-modal">
+            <h3>Enter Operator PIN</h3>
+            <div class="pin-display">
+                <div class="pin-dot" id="pinDot1"></div>
+                <div class="pin-dot" id="pinDot2"></div>
+                <div class="pin-dot" id="pinDot3"></div>
+                <div class="pin-dot" id="pinDot4"></div>
+            </div>
+            <div class="pin-keypad">
+                <button class="pin-key" onclick="enterPin(1)">1</button>
+                <button class="pin-key" onclick="enterPin(2)">2</button>
+                <button class="pin-key" onclick="enterPin(3)">3</button>
+                <button class="pin-key" onclick="enterPin(4)">4</button>
+                <button class="pin-key" onclick="enterPin(5)">5</button>
+                <button class="pin-key" onclick="enterPin(6)">6</button>
+                <button class="pin-key" onclick="enterPin(7)">7</button>
+                <button class="pin-key" onclick="enterPin(8)">8</button>
+                <button class="pin-key" onclick="enterPin(9)">9</button>
+                <button class="pin-key clear" onclick="clearPin()">C</button>
+                <button class="pin-key" onclick="enterPin(0)">0</button>
+                <button class="pin-key enter" onclick="verifyOperatorPin()">OK</button>
+            </div>
+            <p style="margin-top: 15px; font-size: 12px; color: var(--text-muted);">Hand device to operator</p>
+        </div>
+    </div>
+    
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+    
+    <script src="/js/common.js"></script>
+    <script src="/js/booking.js"></script>
+</body>
+</html>

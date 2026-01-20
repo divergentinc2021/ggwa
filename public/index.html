@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="theme-color" content="#29ABE2">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Granny Gear">
+    <meta name="description" content="Granny Gear Workshop Management System">
+    
+    <title>Granny Gear Workshop</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="/manifest.json">
+    
+    <!-- Icons -->
+    <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32.png">
+    <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png">
+    
+    <!-- Styles -->
+    <link rel="stylesheet" href="/css/styles.css">
+    
+    <style>
+        /* Lobby-specific styles */
+        .lobby-container {
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            background: linear-gradient(135deg, var(--brand-cyan) 0%, var(--brand-cyan-dark) 100%);
+        }
+        
+        .lobby-card {
+            background: white;
+            border-radius: var(--radius-lg);
+            padding: 40px;
+            max-width: 450px;
+            width: 100%;
+            box-shadow: var(--shadow-lg);
+            text-align: center;
+        }
+        
+        .lobby-logo {
+            margin-bottom: 30px;
+        }
+        
+        .lobby-logo img {
+            width: 100px;
+            height: 100px;
+            margin-bottom: 15px;
+        }
+        
+        .lobby-logo h1 {
+            font-family: 'Arial Black', Arial, sans-serif;
+            font-style: italic;
+            font-weight: 900;
+            letter-spacing: -1px;
+            text-transform: lowercase;
+            font-size: 36px;
+            color: var(--brand-dark);
+        }
+        
+        .lobby-logo p {
+            color: var(--text-secondary);
+            font-size: 14px;
+            margin-top: 5px;
+        }
+        
+        .lobby-options {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 30px;
+        }
+        
+        .lobby-btn {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            padding: 20px 25px;
+            border: 2px solid var(--border-color);
+            border-radius: var(--radius-lg);
+            background: white;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            text-decoration: none;
+            color: var(--text-primary);
+        }
+        
+        .lobby-btn:hover {
+            border-color: var(--brand-cyan);
+            transform: translateY(-2px);
+            box-shadow: var(--shadow-md);
+        }
+        
+        .lobby-btn.primary {
+            background: linear-gradient(135deg, var(--brand-cyan) 0%, var(--brand-cyan-dark) 100%);
+            border-color: var(--brand-cyan);
+            color: white;
+        }
+        
+        .lobby-btn.primary:hover {
+            background: linear-gradient(135deg, var(--brand-cyan-dark) 0%, #167a9c 100%);
+        }
+        
+        .lobby-btn-icon {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            background: var(--brand-light);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            flex-shrink: 0;
+        }
+        
+        .lobby-btn.primary .lobby-btn-icon {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        .lobby-btn-content {
+            text-align: left;
+        }
+        
+        .lobby-btn-content h3 {
+            font-size: 18px;
+            margin-bottom: 3px;
+        }
+        
+        .lobby-btn-content p {
+            font-size: 13px;
+            opacity: 0.8;
+        }
+        
+        .lobby-footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid var(--border-color);
+            font-size: 12px;
+            color: var(--text-muted);
+        }
+        
+        .lobby-footer a {
+            color: var(--brand-cyan);
+            text-decoration: none;
+        }
+        
+        .version-badge {
+            display: inline-block;
+            background: var(--brand-light);
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 10px;
+        }
+        
+        /* Offline indicator */
+        .offline-banner {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: var(--warning-orange);
+            color: white;
+            text-align: center;
+            padding: 10px;
+            font-size: 14px;
+            font-weight: 600;
+            display: none;
+            z-index: 9999;
+        }
+        
+        .offline-banner.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <!-- Offline Banner -->
+    <div class="offline-banner" id="offlineBanner">
+        📡 You're offline - Some features may be limited
+    </div>
+    
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <span>Loading...</span>
+    </div>
+    
+    <!-- PWA Install Banner -->
+    <div class="pwa-install-banner" id="pwaInstallBanner">
+        <div class="banner-content">
+            <img src="/icons/icon-192.png" alt="Granny Gear">
+            <div class="banner-text">
+                <h4>Install Granny Gear</h4>
+                <p>Add to your home screen for quick access</p>
+            </div>
+        </div>
+        <div class="banner-actions">
+            <button class="btn-install" onclick="installPWA()">Install</button>
+            <button class="btn-dismiss" onclick="dismissPWABanner()">Not now</button>
+        </div>
+    </div>
+    
+    <!-- Main Lobby -->
+    <div class="lobby-container">
+        <div class="lobby-card">
+            <div class="lobby-logo">
+                <img src="/icons/icon-192.png" alt="Granny Gear Logo">
+                <h1>grannygear</h1>
+                <p>Workshop Management System</p>
+            </div>
+            
+            <div class="lobby-options">
+                <a href="/booking.html" class="lobby-btn primary">
+                    <div class="lobby-btn-icon">🚴</div>
+                    <div class="lobby-btn-content">
+                        <h3>New Service Request</h3>
+                        <p>Book your bike in for repair or service</p>
+                    </div>
+                </a>
+                
+                <button class="lobby-btn" onclick="showPinOverlay()">
+                    <div class="lobby-btn-icon">🔧</div>
+                    <div class="lobby-btn-content">
+                        <h3>Job Cart Manager</h3>
+                        <p>Staff access - PIN required</p>
+                    </div>
+                </button>
+            </div>
+            
+            <div class="lobby-footer">
+                <p>www.grannygear.co.za | info@grannygear.co.za</p>
+                <p>+27 21 001 0221 | +27 65 507 0829</p>
+                <span class="version-badge">v1.0.0 PWA</span>
+            </div>
+        </div>
+    </div>
+    
+    <!-- PIN Overlay for Job Cart Access -->
+    <div class="pin-overlay" id="pinOverlay">
+        <div class="pin-modal">
+            <h3>🔧 Staff Login</h3>
+            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">Enter PIN to access Job Cart Manager</p>
+            <div class="pin-display">
+                <div class="pin-dot" id="pinDot1"></div>
+                <div class="pin-dot" id="pinDot2"></div>
+                <div class="pin-dot" id="pinDot3"></div>
+                <div class="pin-dot" id="pinDot4"></div>
+            </div>
+            <div class="pin-keypad">
+                <button class="pin-key" onclick="enterPin(1)">1</button>
+                <button class="pin-key" onclick="enterPin(2)">2</button>
+                <button class="pin-key" onclick="enterPin(3)">3</button>
+                <button class="pin-key" onclick="enterPin(4)">4</button>
+                <button class="pin-key" onclick="enterPin(5)">5</button>
+                <button class="pin-key" onclick="enterPin(6)">6</button>
+                <button class="pin-key" onclick="enterPin(7)">7</button>
+                <button class="pin-key" onclick="enterPin(8)">8</button>
+                <button class="pin-key" onclick="enterPin(9)">9</button>
+                <button class="pin-key clear" onclick="clearPin()">C</button>
+                <button class="pin-key" onclick="enterPin(0)">0</button>
+                <button class="pin-key enter" onclick="verifyPin()">OK</button>
+            </div>
+            <button onclick="hidePinOverlay()" style="margin-top: 15px; background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 13px;">Cancel</button>
+        </div>
+    </div>
+    
+    <!-- Toast Container -->
+    <div class="toast-container" id="toastContainer"></div>
+    
+    <script src="/js/common.js"></script>
+    <script>
+        // PIN handling
+        let currentPin = '';
+        
+        function showPinOverlay() {
+            document.getElementById('pinOverlay').classList.add('active');
+            currentPin = '';
+            updatePinDisplay();
+        }
+        
+        function hidePinOverlay() {
+            document.getElementById('pinOverlay').classList.remove('active');
+            currentPin = '';
+            updatePinDisplay();
+        }
+        
+        function enterPin(digit) {
+            if (currentPin.length < 4) {
+                currentPin += digit;
+                updatePinDisplay();
+            }
+        }
+        
+        function clearPin() {
+            currentPin = '';
+            updatePinDisplay();
+        }
+        
+        function updatePinDisplay() {
+            for (let i = 1; i <= 4; i++) {
+                const dot = document.getElementById(`pinDot${i}`);
+                if (dot) {
+                    dot.classList.toggle('filled', i <= currentPin.length);
+                }
+            }
+        }
+        
+        async function verifyPin() {
+            if (currentPin.length !== 4) {
+                showToast('Please enter 4-digit PIN', 'warning');
+                return;
+            }
+            
+            showLoading(true);
+            
+            try {
+                // Verify PIN via Apps Script
+                const result = await apiCall('verifyPin', { pin: currentPin });
+                
+                if (result.success) {
+                    // Store auth in session
+                    setOperatorAuth();
+                    
+                    // Redirect to cart manager
+                    window.location.href = '/cart.html';
+                } else {
+                    showToast('Invalid PIN', 'error');
+                    clearPin();
+                }
+            } catch (error) {
+                console.error('PIN verification error:', error);
+                showToast('Connection error. Please try again.', 'error');
+                clearPin();
+            } finally {
+                showLoading(false);
+            }
+        }
+        
+        // Keyboard support
+        document.addEventListener('keydown', (e) => {
+            const overlay = document.getElementById('pinOverlay');
+            if (!overlay.classList.contains('active')) return;
+            
+            if (/^[0-9]$/.test(e.key)) {
+                e.preventDefault();
+                enterPin(parseInt(e.key));
+            } else if (e.key === 'Backspace' || e.key === 'Delete') {
+                e.preventDefault();
+                clearPin();
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                verifyPin();
+            } else if (e.key === 'Escape') {
+                hidePinOverlay();
+            }
+        });
+        
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            // Check if already authenticated
+            if (checkOperatorAuth()) {
+                // Optional: auto-redirect to cart or show different UI
+            }
+            initPWA();
+        });
+    </script>
+</body>
+</html>

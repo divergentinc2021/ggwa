@@ -2,9 +2,9 @@
 
 const CACHE_NAME = 'grannygear-v1';
 const STATIC_ASSETS = [
-    '/index.html',
-    '/booking.html',
-    '/cart.html',
+    '/',
+    '/booking',
+    '/cart',
     '/css/styles.css',
     '/js/common.js',
     '/js/booking.js',
@@ -115,33 +115,14 @@ self.addEventListener('fetch', (event) => {
                     return cachedResponse;
                 }
                 
-                // Try with .html extension (Cloudflare Pages routing: /booking → /booking.html)
-                const pathWithHtml = url.pathname.endsWith('.html') ? null : url.pathname + '.html';
-                if (pathWithHtml) {
-                    return caches.match(pathWithHtml)
-                        .then((htmlResponse) => {
-                            if (htmlResponse) {
-                                fetchAndCache(request);
-                                return htmlResponse;
-                            }
-                            return fetchAndCache(request);
-                        });
-                }
-                
                 return fetchAndCache(request);
             })
             .catch((error) => {
                 console.error('Fetch error:', error);
                 
-                // Offline fallback - try .html version of the path
+                // Offline fallback for HTML pages
                 if (request.headers.get('Accept')?.includes('text/html')) {
-                    if (!url.pathname.endsWith('.html')) {
-                        return caches.match(url.pathname + '.html')
-                            .then(r => r || caches.match('/index.html'))
-                            .then(r => r || new Response('Offline', { status: 503 }));
-                    }
-                    return caches.match('/index.html')
-                        .then(r => r || new Response('Offline', { status: 503 }));
+                    return caches.match('/');
                 }
                 return new Response('Offline', { status: 503 });
             })
@@ -181,7 +162,7 @@ async function fetchAndCache(request) {
         }
         
         if (request.headers.get('Accept')?.includes('text/html')) {
-            return caches.match('/index.html') || new Response('Offline', { status: 503 });
+            return caches.match('/') || new Response('Offline', { status: 503 });
         }
         
         throw error;

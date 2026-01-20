@@ -1,7 +1,16 @@
 /* ===== GRANNY GEAR WORKSHOP - COMMON UTILITIES ===== */
 
+// ===== DEBUG MODE =====
+const DEBUG_MODE = true; // Set to false in production
+
+function debugLog(...args) {
+    if (DEBUG_MODE) {
+        console.log('[GG]', ...args);
+    }
+}
+
 // ===== API CONFIGURATION =====
-// Try proxy first, fallback to direct Apps Script if proxy fails
+// Skip proxy on Cloudflare Pages (no functions deployed), go direct to Apps Script
 const API_PROXY_URL = '/api/proxy';
 const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyhSpACfq5hYN88C4yd7YX7FEpXRjv9gA9gX6Qb9J1qp35B0IOpvl107HcT3KDFXFRx/exec';
 
@@ -9,8 +18,8 @@ const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbyhSpACfq5hYN88
 const SPREADSHEET_ID = '1LI9lVHqDvCvJDS3gCJDc5L_x4NGf4NSS-7A572h_x2U';
 const DRIVE_FOLDER_ID = '1GIaVT0A6AuGvMrgcI047eBqG0HKj4ld_';
 
-// Track if proxy is available
-let useProxy = true;
+// Track if proxy is available - start with false since CF Pages has no proxy
+let useProxy = false;
 
 // ===== LOADING OVERLAY =====
 function showLoading(show = true) {
@@ -95,45 +104,24 @@ function formatPhoneNumber(input) {
     input.value = value;
 }
 
-// ===== API CALLS (with automatic fallback) =====
+// ===== API CALLS (direct to Apps Script) =====
 /**
- * Make API calls with automatic proxy/direct fallback
+ * Make API calls directly to Apps Script
  * @param {string} action - The action to call (verifyPin, createJob, getJobs, etc.)
  * @param {object} data - The data to send
  * @returns {Promise<object>} - The response
  */
 async function apiCall(action, data = {}) {
+    debugLog('API Call:', action, data);
+    
     const payload = {
         action: action,
         ...data
     };
     
-    // Try proxy first if enabled
-    if (useProxy) {
-        try {
-            const response = await fetch(API_PROXY_URL, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                },
-                body: JSON.stringify(payload)
-            });
-            
-            if (response.ok) {
-                return response.json();
-            }
-            
-            // Proxy failed - try direct connection
-            console.warn('Proxy failed, falling back to direct Apps Script');
-            useProxy = false;
-        } catch (error) {
-            console.warn('Proxy not available, using direct Apps Script:', error.message);
-            useProxy = false;
-        }
-    }
-    
-    // Direct Apps Script call (fallback or default)
     try {
+        debugLog('Calling Apps Script directly...');
+        
         const response = await fetch(APPS_SCRIPT_URL, {
             method: 'POST',
             headers: {
@@ -142,22 +130,30 @@ async function apiCall(action, data = {}) {
             body: JSON.stringify(payload)
         });
         
+        debugLog('Response status:', response.status);
+        
         if (!response.ok) {
             throw new Error(`API Error: ${response.status}`);
         }
         
-        return response.json();
+        const result = await response.json();
+        debugLog('API Result:', result);
+        return result;
+        
     } catch (error) {
-        console.error('Direct API call failed:', error);
+        console.error('[GG] API call failed:', error);
         throw new Error(`Connection failed: ${error.message}`);
     }
 }
 
 // ===== OFFLINE DETECTION =====
 function updateOnlineStatus() {
+    const isOnline = navigator.onLine;
+    debugLog('Online status:', isOnline);
+    
     const banner = document.getElementById('offlineBanner');
     if (banner) {
-        banner.classList.toggle('active', !navigator.onLine);
+        banner.classList.toggle('active', !isOnline);
     }
 }
 
@@ -168,15 +164,45 @@ window.addEventListener('offline', updateOnlineStatus);
 let deferredPrompt = null;
 
 function initPWA() {
+    debugLog('Initializing PWA...');
+    debugLog('navigator.onLine:', navigator.onLine);
+    
     // Register service worker
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('/sw.js')
             .then(registration => {
-                console.log('SW registered:', registration.scope);
+                debugLog('SW registered:', registration.scope);
+                debugLog('SW state:', registration.active?.state);
+                
+                // Check for updates
+                registration.update().then(() => {
+                    debugLog('SW update check complete');
+                });
+                
+                // Listen for SW updates
+                registration.addEventListener('updatefound', () => {
+                    debugLog('SW update found!');
+                    const newWorker = registration.installing;
+                    newWorker.addEventListener('statechange', () => {
+                        debugLog('New SW state:', newWorker.state);
+                        if (newWorker.state === 'installed' && navigator.serviceWorker.controller) {
+                            // New SW available, activate it
+                            debugLog('New SW installed, activating...');
+                            newWorker.postMessage({ type: 'SKIP_WAITING' });
+                        }
+                    });
+                });
             })
             .catch(error => {
-                console.log('SW registration failed:', error);
+                console.error('[GG] SW registration failed:', error);
             });
+        
+        // Reload page when new SW takes control
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            debugLog('SW controller changed, page will use new SW');
+        });
+    } else {
+        debugLog('Service Worker not supported');
     }
     
     // Handle install prompt
@@ -193,13 +219,15 @@ function initPWA() {
     
     // Handle successful install
     window.addEventListener('appinstalled', () => {
-        console.log('PWA installed');
+        debugLog('PWA installed');
         hideInstallBanner();
         deferredPrompt = null;
     });
     
     // Check initial online status
     updateOnlineStatus();
+    
+    debugLog('PWA initialization complete');
 }
 
 function showInstallBanner() {

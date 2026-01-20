@@ -3,6 +3,9 @@
 const CACHE_NAME = 'grannygear-v5';
 const STATIC_ASSETS = [
     '/',
+    '/index.html',
+    '/booking.html',
+    '/cart.html',
     '/booking',
     '/cart',
     '/css/styles.css',

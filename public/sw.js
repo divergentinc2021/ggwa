@@ -2,15 +2,17 @@
 
 const CACHE_NAME = 'grannygear-v1';
 const STATIC_ASSETS = [
-    '/',
     '/index.html',
     '/booking.html',
     '/cart.html',
     '/css/styles.css',
     '/js/common.js',
+    '/js/booking.js',
+    '/js/cart.js',
     '/manifest.json',
     '/icons/icon-192.png',
-    '/icons/icon-512.png'
+    '/icons/icon-512.png',
+    '/icons/favicon-32.png'
 ];
 
 // Helper function to check if URL is cacheable

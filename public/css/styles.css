@@ -55,6 +55,26 @@ body.operator-authenticated {
 }
 .loading-overlay.active { display: flex; }
 
+/* ===== Offline Banner ===== */
+.offline-banner {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: var(--warning-orange);
+    color: white;
+    text-align: center;
+    padding: 10px;
+    font-size: 14px;
+    font-weight: 600;
+    display: none;
+    z-index: 9999;
+}
+
+.offline-banner.active {
+    display: block;
+}
+
 .spinner {
     width: 50px;
     height: 50px;

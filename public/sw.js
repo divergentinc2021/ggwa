@@ -1,13 +1,10 @@
 /* ===== GRANNY GEAR WORKSHOP - SERVICE WORKER ===== */
 
-const CACHE_NAME = 'grannygear-v4';
+const CACHE_NAME = 'grannygear-v5';
 const STATIC_ASSETS = [
     '/',
-    '/index.html',
     '/booking',
-    '/booking.html',
     '/cart',
-    '/cart.html',
     '/css/styles.css',
     '/js/common.js',
     '/js/booking.js',
@@ -43,7 +40,7 @@ function isCacheable(url) {
     return true;
 }
 
-// Install event - cache static assets
+// Install event - cache static assets with redirect following
 self.addEventListener('install', (event) => {
     console.log('Service Worker installing...');
     
@@ -51,20 +48,24 @@ self.addEventListener('install', (event) => {
         caches.open(CACHE_NAME)
             .then((cache) => {
                 console.log('Caching static assets');
-                // Cache each asset individually to handle failures
+                // Use Promise.allSettled to cache individually and continue on failures
                 return Promise.allSettled(
                     STATIC_ASSETS.map(url => 
                         fetch(url, { redirect: 'follow' })
                             .then(response => {
-                                if (response.ok) {
+                                if (response && response.status === 200) {
                                     return cache.put(url, response);
                                 }
+                                console.warn(`Failed to cache ${url}: status ${response.status}`);
                             })
-                            .catch(err => console.warn(`Failed to cache ${url}:`, err))
+                            .catch(err => console.warn(`Failed to cache ${url}:`, err.message))
                     )
                 );
             })
-            .then(() => self.skipWaiting())
+            .then(() => {
+                console.log('Cache installation complete');
+                return self.skipWaiting();
+            })
             .catch((error) => {
                 console.error('Cache installation failed:', error);
             })
@@ -89,7 +90,7 @@ self.addEventListener('activate', (event) => {
     );
 });
 
-// Fetch event - serve from network, fallback to cache
+// Fetch event - network first, cache fallback
 self.addEventListener('fetch', (event) => {
     const { request } = event;
     
@@ -109,28 +110,24 @@ self.addEventListener('fetch', (event) => {
             fetch(request, { redirect: 'follow' })
                 .catch(() => {
                     return new Response(
-                        JSON.stringify({ error: 'Offline - cannot reach server' }),
-                        { 
-                            status: 503,
-                            headers: { 'Content-Type': 'application/json' }
-                        }
+                        JSON.stringify({ error: 'Offline' }),
+                        { status: 503, headers: { 'Content-Type': 'application/json' } }
                     );
                 })
         );
         return;
     }
     
-    // For static assets - network first, cache fallback
+    // Network first, cache fallback
     event.respondWith(
         fetch(request, { redirect: 'follow' })
             .then((response) => {
                 // Cache successful responses
                 if (response && response.status === 200 && isCacheable(request.url)) {
                     const responseClone = response.clone();
-                    caches.open(CACHE_NAME)
-                        .then((cache) => {
-                            cache.put(request, responseClone);
-                        });
+                    caches.open(CACHE_NAME).then((cache) => {
+                        cache.put(request, responseClone).catch(() => {});
+                    });
                 }
                 return response;
             })
@@ -142,10 +139,9 @@ self.addEventListener('fetch', (event) => {
                             return cachedResponse;
                         }
                         
-                        // Offline fallback for HTML
+                        // HTML offline fallback
                         if (request.headers.get('Accept')?.includes('text/html')) {
-                            return caches.match('/')
-                                .then(r => r || new Response('Offline', { status: 503 }));
+                            return caches.match('/');
                         }
                         
                         return new Response('Offline', { status: 503 });
@@ -154,26 +150,14 @@ self.addEventListener('fetch', (event) => {
     );
 });
 
-// Handle messages from the main app
+// Handle messages
 self.addEventListener('message', (event) => {
-    if (event.data && event.data.type === 'SKIP_WAITING') {
+    if (event.data?.type === 'SKIP_WAITING') {
         self.skipWaiting();
     }
-    
-    if (event.data && event.data.type === 'CLEAR_CACHE') {
+    if (event.data?.type === 'CLEAR_CACHE') {
         caches.delete(CACHE_NAME).then(() => {
             console.log('Cache cleared');
         });
     }
 });
-
-// Background sync for offline job submissions
-self.addEventListener('sync', (event) => {
-    if (event.tag === 'sync-jobs') {
-        event.waitUntil(syncPendingJobs());
-    }
-});
-
-async function syncPendingJobs() {
-    console.log('Syncing pending jobs...');
-}

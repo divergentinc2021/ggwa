@@ -1,10 +1,10 @@
 /* ===== GRANNY GEAR WORKSHOP - SERVICE WORKER ===== */
 
-const CACHE_NAME = 'grannygear-v1';
+const CACHE_NAME = 'grannygear-v2';
 const STATIC_ASSETS = [
-    '/',
-    '/booking',
-    '/cart',
+    '/index.html',
+    '/booking.html',
+    '/cart.html',
     '/css/styles.css',
     '/js/common.js',
     '/js/booking.js',
@@ -106,68 +106,42 @@ self.addEventListener('fetch', (event) => {
         return;
     }
     
-    // For static assets - cache first, network fallback
+    // For static assets - network first, cache fallback for offline
     event.respondWith(
-        caches.match(request)
-            .then((cachedResponse) => {
-                if (cachedResponse) {
-                    fetchAndCache(request);
-                    return cachedResponse;
+        fetch(request, { redirect: 'follow' })
+            .then((response) => {
+                // Cache successful responses
+                if (response && response.status === 200 && isCacheable(request.url)) {
+                    const responseClone = response.clone();
+                    caches.open(CACHE_NAME)
+                        .then((cache) => {
+                            cache.put(request, responseClone);
+                        });
                 }
-                
-                return fetchAndCache(request);
+                return response;
             })
             .catch((error) => {
-                console.error('Fetch error:', error);
-                
-                // Offline fallback for HTML pages
-                if (request.headers.get('Accept')?.includes('text/html')) {
-                    return caches.match('/');
-                }
-                return new Response('Offline', { status: 503 });
+                // Network failed - try cache
+                return caches.match(request)
+                    .then((cachedResponse) => {
+                        if (cachedResponse) {
+                            return cachedResponse;
+                        }
+                        
+                        // If HTML page offline, try the .html version
+                        if (request.headers.get('Accept')?.includes('text/html')) {
+                            if (!url.pathname.endsWith('.html')) {
+                                return caches.match(url.pathname + '.html')
+                                    .then(r => r || caches.match('/index.html'));
+                            }
+                            return caches.match('/index.html');
+                        }
+                        
+                        return new Response('Offline', { status: 503 });
+                    });
             })
     );
 });
-
-// Helper function to fetch and cache
-async function fetchAndCache(request) {
-    try {
-        const networkResponse = await fetch(request, { 
-            redirect: 'follow',
-            credentials: 'same-origin'
-        });
-        
-        if (networkResponse && networkResponse.status === 200 && isCacheable(request.url)) {
-            const responseClone = networkResponse.clone();
-            
-            caches.open(CACHE_NAME)
-                .then((cache) => {
-                    cache.put(request, responseClone)
-                        .catch((error) => {
-                            console.warn('Failed to cache:', request.url, error);
-                        });
-                })
-                .catch((error) => {
-                    console.warn('Failed to open cache:', error);
-                });
-        }
-        
-        return networkResponse;
-    } catch (error) {
-        console.error('Network fetch failed:', error);
-        
-        const cachedResponse = await caches.match(request);
-        if (cachedResponse) {
-            return cachedResponse;
-        }
-        
-        if (request.headers.get('Accept')?.includes('text/html')) {
-            return caches.match('/') || new Response('Offline', { status: 503 });
-        }
-        
-        throw error;
-    }
-}
 
 // Handle messages from the main app
 self.addEventListener('message', (event) => {

@@ -1,9 +1,12 @@
 /* ===== GRANNY GEAR WORKSHOP - SERVICE WORKER ===== */
 
-const CACHE_NAME = 'grannygear-v2';
+const CACHE_NAME = 'grannygear-v4';
 const STATIC_ASSETS = [
+    '/',
     '/index.html',
+    '/booking',
     '/booking.html',
+    '/cart',
     '/cart.html',
     '/css/styles.css',
     '/js/common.js',
@@ -48,7 +51,18 @@ self.addEventListener('install', (event) => {
         caches.open(CACHE_NAME)
             .then((cache) => {
                 console.log('Caching static assets');
-                return cache.addAll(STATIC_ASSETS);
+                // Cache each asset individually to handle failures
+                return Promise.allSettled(
+                    STATIC_ASSETS.map(url => 
+                        fetch(url, { redirect: 'follow' })
+                            .then(response => {
+                                if (response.ok) {
+                                    return cache.put(url, response);
+                                }
+                            })
+                            .catch(err => console.warn(`Failed to cache ${url}:`, err))
+                    )
+                );
             })
             .then(() => self.skipWaiting())
             .catch((error) => {
@@ -75,7 +89,7 @@ self.addEventListener('activate', (event) => {
     );
 });
 
-// Fetch event - serve from cache, fallback to network
+// Fetch event - serve from network, fallback to cache
 self.addEventListener('fetch', (event) => {
     const { request } = event;
     
@@ -106,7 +120,7 @@ self.addEventListener('fetch', (event) => {
         return;
     }
     
-    // For static assets - network first, cache fallback for offline
+    // For static assets - network first, cache fallback
     event.respondWith(
         fetch(request, { redirect: 'follow' })
             .then((response) => {
@@ -120,21 +134,18 @@ self.addEventListener('fetch', (event) => {
                 }
                 return response;
             })
-            .catch((error) => {
-                // Network failed - try cache
+            .catch(() => {
+                // Network failed - serve from cache
                 return caches.match(request)
                     .then((cachedResponse) => {
                         if (cachedResponse) {
                             return cachedResponse;
                         }
                         
-                        // If HTML page offline, try the .html version
+                        // Offline fallback for HTML
                         if (request.headers.get('Accept')?.includes('text/html')) {
-                            if (!url.pathname.endsWith('.html')) {
-                                return caches.match(url.pathname + '.html')
-                                    .then(r => r || caches.match('/index.html'));
-                            }
-                            return caches.match('/index.html');
+                            return caches.match('/')
+                                .then(r => r || new Response('Offline', { status: 503 }));
                         }
                         
                         return new Response('Offline', { status: 503 });
